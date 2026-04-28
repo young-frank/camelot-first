@@ -148,4 +148,4 @@ The data itself: ward member names, addresses, and ministering pairings. Sensiti
 
 ## Credits
 
-Built for [your ward], April 2026.
+Built for Camelot 1st Ward Elders Quorum, April 2026.
