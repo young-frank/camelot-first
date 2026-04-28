@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ministering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f5f1ea;
+    --surface: #ffffff;
+    --ink: #2a2520;
+    --ink-soft: #6b6359;
+    --accent: #8b6f47;
+    --accent-deep: #5d4830;
+    --line: #e6dfd2;
+    --warm: #f9f5ed;
+    --green: #6b8e5a;
+    --red: #b8634a;
+    --warn: #c47c3a;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    background-image: radial-gradient(circle at 20% 10%, rgba(139, 111, 71, 0.05) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 80%, rgba(139, 111, 71, 0.04) 0%, transparent 50%);
+  }
+  .display { font-family: 'Fraunces', serif; font-weight: 500; letter-spacing: -0.02em; }
+  .surface { background: var(--surface); border: 1px solid var(--line); }
+  .card-shadow { box-shadow: 0 1px 2px rgba(42, 37, 32, 0.04), 0 4px 12px rgba(42, 37, 32, 0.04); }
+  .accent-text { color: var(--accent-deep); }
+  .ink-soft { color: var(--ink-soft); }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+  .btn-primary { background: var(--accent-deep); color: white; transition: all 0.15s; }
+  .btn-primary:hover { background: var(--ink); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); transition: all 0.15s; }
+  .btn-ghost:hover { background: var(--warm); border-color: var(--accent); }
+  .draggable { cursor: grab; transition: all 0.15s; }
+  .draggable:active { cursor: grabbing; }
+  .drag-over { background: var(--warm) !important; border-color: var(--accent) !important; }
+  .dragging { opacity: 0.4; }
+  .companionship-card { transition: all 0.2s; }
+  .companionship-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(42, 37, 32, 0.08); }
+  .nav-tab { padding: 10px 16px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; color: var(--ink-soft); transition: all 0.15s; cursor: pointer; }
+  .nav-tab.active { color: var(--ink); border-color: var(--accent-deep); }
+  .nav-tab:hover { color: var(--ink); }
+  input, select { font-family: inherit; }
+  .input { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px; transition: border 0.15s; }
+  .input:focus { outline: none; border-color: var(--accent); }
+  .badge-warn { background: #fef0e8; color: #a04420; border: 1px solid #f5d0bf; }
+  .badge-ok { background: #eef4e8; color: #4a6b3a; border: 1px solid #d4e3c5; }
+  .badge-info { background: #eaf0f5; color: #3a5a73; border: 1px solid #c5d4e3; }
+  .badge-soft { background: #fff4e6; color: #a05a1f; border: 1px solid #f0d9b8; }
+  .scrollbar-fine::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-fine::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-fine::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .scrollbar-fine::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+  .modal-bg { background: rgba(42, 37, 32, 0.4); backdrop-filter: blur(4px); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.2s ease-out; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: white; padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent-deep); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Password gate -->
+<div id="gate" class="fixed inset-0 modal-bg flex items-center justify-center z-50">
+  <div class="surface card-shadow rounded-2xl p-8 w-full max-w-md mx-4 fade-in">
+    <h1 class="display text-3xl mb-2">Ministering</h1>
+    <p class="ink-soft text-sm mb-6">Enter the shared passphrase to continue.</p>
+    <input id="gateInput" type="password" class="input w-full mb-3" placeholder="Passphrase" autocomplete="off" />
+    <div id="gateError" class="text-sm mb-3 hidden" style="color: var(--red);">Incorrect passphrase.</div>
+    <button id="gateBtn" class="btn-primary w-full py-2.5 rounded-lg font-medium">Enter</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+
+  <header class="border-b" style="border-color: var(--line); background: var(--surface);">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="display text-2xl">Ministering</h1>
+        <p class="ink-soft text-xs">Elders quorum companionships and assignments</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="syncStatus" class="text-xs ink-soft">Loading...</div>
+        <button id="refreshBtn" class="btn-ghost px-3 py-1.5 rounded-lg text-sm">Refresh roster</button>
+        <button id="settingsBtn" class="btn-ghost px-3 py-1.5 rounded-lg text-sm">Settings</button>
+      </div>
+    </div>
+    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
+      <nav class="flex gap-2">
+        <button class="nav-tab active" data-view="board">Companionship Board</button>
+        <button class="nav-tab" data-view="table">Assignments Table</button>
+        <button class="nav-tab" data-view="unassigned">Unassigned</button>
+        <button class="nav-tab" data-view="issues">Issues <span id="issuesBadge" class="ml-1 hidden text-xs"></span></button>
+      </nav>
+      <div class="flex items-center gap-2">
+        <label class="text-xs ink-soft">District</label>
+        <select id="districtFilter" class="input text-sm py-1">
+          <option value="all">All districts</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- BOARD VIEW -->
+    <section id="view-board">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="display text-xl">Companionship Board</h2>
+          <p class="ink-soft text-sm">Drag people into companionships. Drag households onto a companionship to assign.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="newCompBtn" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">+ New companionship</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-5">
+        <!-- Available people -->
+        <div class="col-span-3">
+          <div class="surface rounded-xl p-4 card-shadow sticky top-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-sm">Available people</h3>
+              <span id="availablePeopleCount" class="pill ink-soft">0</span>
+            </div>
+            <input id="peopleSearch" placeholder="Search..." class="input w-full text-sm mb-3" />
+            <div id="availablePeople" class="space-y-1.5 max-h-[60vh] overflow-y-auto scrollbar-fine"></div>
+          </div>
+        </div>
+
+        <!-- Companionships -->
+        <div class="col-span-6">
+          <div id="companionships" class="space-y-4"></div>
+          <div id="companionshipsEmpty" class="text-center py-12 ink-soft text-sm hidden">
+            No companionships yet. Click "New companionship" to start.
+          </div>
+        </div>
+
+        <!-- Available households -->
+        <div class="col-span-3">
+          <div class="surface rounded-xl p-4 card-shadow sticky top-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-sm">Households</h3>
+              <span id="availableHouseholdsCount" class="pill ink-soft">0</span>
+            </div>
+            <input id="householdsSearch" placeholder="Search..." class="input w-full text-sm mb-3" />
+            <div class="flex gap-1 mb-3 text-xs">
+              <button class="filter-btn pill" data-filter="unassigned">Unassigned</button>
+              <button class="filter-btn pill" data-filter="all">All</button>
+            </div>
+            <div id="availableHouseholds" class="space-y-1.5 max-h-[60vh] overflow-y-auto scrollbar-fine"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLE VIEW -->
+    <section id="view-table" class="hidden">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="display text-xl">Assignments Table</h2>
+          <p class="ink-soft text-sm">All companionships and the households they minister to.</p>
+        </div>
+        <input id="tableSearch" placeholder="Search..." class="input text-sm" />
+      </div>
+      <div class="surface rounded-xl card-shadow overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="border-b" style="border-color: var(--line); background: var(--warm);">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">District</th>
+              <th class="text-left px-4 py-3 font-semibold">Companionship</th>
+              <th class="text-left px-4 py-3 font-semibold">Households</th>
+              <th class="text-left px-4 py-3 font-semibold w-40">Status</th>
+              <th class="w-12"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- UNASSIGNED VIEW -->
+    <section id="view-unassigned" class="hidden">
+      <h2 class="display text-xl mb-1">Unassigned</h2>
+      <p class="ink-soft text-sm mb-5">Anyone or anywhere that still needs ministering coverage.</p>
+      <div class="grid grid-cols-2 gap-5">
+        <div class="surface rounded-xl p-5 card-shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">People without a companionship</h3>
+            <span id="unassignedPeopleCount" class="pill"></span>
+          </div>
+          <div id="unassignedPeople" class="space-y-2 max-h-[70vh] overflow-y-auto scrollbar-fine"></div>
+        </div>
+        <div class="surface rounded-xl p-5 card-shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Households without ministers</h3>
+            <span id="unassignedHouseholdsCount" class="pill"></span>
+          </div>
+          <div id="unassignedHouseholds" class="space-y-2 max-h-[70vh] overflow-y-auto scrollbar-fine"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ISSUES VIEW -->
+    <section id="view-issues" class="hidden">
+      <h2 class="display text-xl mb-1">Issues</h2>
+      <p class="ink-soft text-sm mb-5">Companionships and assignments that need attention. These usually appear after a roster refresh when someone moves out.</p>
+      <div id="issuesContent" class="space-y-4"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Settings modal -->
+<div id="settingsModal" class="fixed inset-0 modal-bg hidden items-center justify-center z-40">
+  <div class="surface card-shadow rounded-2xl p-6 w-full max-w-lg mx-4 fade-in">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="display text-xl">Settings</h2>
+      <button id="settingsClose" class="ink-soft hover:text-black text-xl leading-none">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Google Sheet ID</label>
+        <input id="sheetIdInput" class="input w-full" placeholder="1AbC...xyz" />
+        <p class="ink-soft text-xs mt-1">From the sheet URL between /d/ and /edit</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Google API Key</label>
+        <input id="apiKeyInput" type="password" class="input w-full" placeholder="AIza..." />
+        <p class="ink-soft text-xs mt-1">Stored in your browser only. Sheet must be public-link-viewable.</p>
+      </div>
+      <div class="border-t pt-4" style="border-color: var(--line);">
+        <h3 class="font-semibold text-sm mb-2">Expected sheet structure</h3>
+        <p class="ink-soft text-xs mb-2">Three tabs, header row in row 1:</p>
+        <ul class="text-xs space-y-1 ink-soft">
+          <li><b>Assignees</b>: District, Assignee Name, Address</li>
+          <li><b>Households</b>: District, Family Name, Members</li>
+          <li><b>Assignments</b>: read on first run only, ignored thereafter</li>
+        </ul>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button id="settingsSave" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium flex-1">Save and reload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+//////////////////////////////////////////////////////////////////
+// CONFIGURATION
+//////////////////////////////////////////////////////////////////
+
+// Supabase project. These are baked in because the anon key is meant to be public.
+// Real access control is the passphrase gate plus the unguessable URL.
+const SUPABASE_URL = 'https://hwbayyapshaqdsyoxwjv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3YmF5eWFwc2hhcWRzeW94d2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNDEzNTYsImV4cCI6MjA5MjkxNzM1Nn0.unLtExBuAxsrcFSGpd4t0Mpu86xaZzo0SBCnDS2pkeE';
+
+// Default passphrase. To change: update PASS_HASH below to the SHA-256 of your new
+// passphrase, and remove the DEFAULT_PASS fallback. See README for the recipe.
+const DEFAULT_PASS = 'ministering';
+const PASS_HASH = ''; // when set to a real hash, takes precedence over DEFAULT_PASS
+
+const SETTINGS_KEY = 'ministering_settings_v1';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+//////////////////////////////////////////////////////////////////
+// STATE
+//////////////////////////////////////////////////////////////////
+
+let state = {
+  config: { sheetId: '', apiKey: '' },
+  people: [],          // { id, name, address, district }
+  households: [],      // { id, name, members, district }
+  companionships: [],  // { id, district, needs_replacement, members:[{assignee_id,name,is_missing}], households:[{household_id,name,is_missing}] }
+  district: 'all',
+  householdFilter: 'unassigned',
+  view: 'board',
+};
+
+function loadSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (raw) {
+    try { state.config = JSON.parse(raw); } catch (e) {}
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.config));
+}
+
+//////////////////////////////////////////////////////////////////
+// PASSWORD GATE
+//////////////////////////////////////////////////////////////////
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+document.getElementById('gateBtn').addEventListener('click', tryUnlock);
+document.getElementById('gateInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+
+async function tryUnlock() {
+  const input = document.getElementById('gateInput').value;
+  const hash = await sha256(input);
+  let ok = false;
+  if (PASS_HASH) {
+    ok = (hash === PASS_HASH);
+  } else if (DEFAULT_PASS) {
+    ok = (hash === await sha256(DEFAULT_PASS));
+  }
+  if (ok) {
+    sessionStorage.setItem('mw_unlocked', '1');
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    init();
+  } else {
+    document.getElementById('gateError').classList.remove('hidden');
+  }
+}
+
+if (sessionStorage.getItem('mw_unlocked') === '1') {
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  // delay init to next tick so DOM is ready
+  setTimeout(init, 0);
+}
+
+//////////////////////////////////////////////////////////////////
+// GOOGLE SHEETS
+//////////////////////////////////////////////////////////////////
+
+async function fetchRoster() {
+  const { sheetId, apiKey } = state.config;
+  if (!sheetId || !apiKey) {
+    setStatus('No sheet configured. Open Settings to add one.');
+    return;
+  }
+  setStatus('Fetching roster...');
+  try {
+    const ranges = ['Assignees!A:Z', 'Households!A:Z'];
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?ranges=${ranges.map(r => encodeURIComponent(r)).join('&ranges=')}&key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Sheets API ${res.status}: ${body.slice(0,200)}`);
+    }
+    const data = await res.json();
+    parseAssignees(data.valueRanges[0].values || []);
+    parseHouseholds(data.valueRanges[1].values || []);
+    populateDistrictFilter();
+    flagMissingReferences();
+    render();
+    setStatus(`Synced. ${state.people.length} people, ${state.households.length} households, ${state.companionships.length} companionships.`);
+  } catch (err) {
+    console.error(err);
+    setStatus('Could not fetch sheet. Check Settings.');
+    toast('Sheet fetch failed: ' + err.message);
+  }
+}
+
+function parseAssignees(rows) {
+  if (rows.length < 2) { state.people = []; return; }
+  const headers = rows[0].map(h => (h || '').toString().toLowerCase().trim());
+  const distIdx = headers.findIndex(h => h.includes('district'));
+  const nameIdx = headers.findIndex(h => h.includes('name'));
+  const addrIdx = headers.findIndex(h => h.includes('address'));
+  state.people = rows.slice(1)
+    .filter(r => r[nameIdx])
+    .map(r => ({
+      id: slug(r[nameIdx], 'm'),
+      name: r[nameIdx] || '',
+      address: r[addrIdx] || '',
+      district: r[distIdx] || '',
+    }));
+}
+
+function parseHouseholds(rows) {
+  if (rows.length < 2) { state.households = []; return; }
+  const headers = rows[0].map(h => (h || '').toString().toLowerCase().trim());
+  const distIdx = headers.findIndex(h => h.includes('district'));
+  const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('family'));
+  const memIdx = headers.findIndex(h => h.includes('member'));
+  state.households = rows.slice(1)
+    .filter(r => r[nameIdx])
+    .map(r => ({
+      id: slug(r[nameIdx], 'h'),
+      name: r[nameIdx] || '',
+      members: r[memIdx] || '',
+      district: r[distIdx] || '',
+    }));
+}
+
+function slug(name, prefix) {
+  return prefix + '_' + (name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function populateDistrictFilter() {
+  const districts = [...new Set([
+    ...state.people.map(p => p.district),
+    ...state.households.map(h => h.district),
+  ])].filter(Boolean).sort();
+  const sel = document.getElementById('districtFilter');
+  const current = sel.value || 'all';
+  sel.innerHTML = '<option value="all">All districts</option>' +
+    districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  sel.value = current;
+}
+
+// After fetching the roster, mark companionships whose members or households
+// no longer exist in the sheet.
+function flagMissingReferences() {
+  const peopleIds = new Set(state.people.map(p => p.id));
+  const householdIds = new Set(state.households.map(h => h.id));
+
+  for (const c of state.companionships) {
+    let anyMissing = false;
+    for (const m of c.members) {
+      const missing = !peopleIds.has(m.assignee_id);
+      if (missing !== m.is_missing) {
+        m.is_missing = missing;
+        // Persist
+        sb.from('companionship_members').update({ is_missing: missing }).eq('id', m.id).then(() => {});
+      }
+      if (missing) anyMissing = true;
+    }
+    for (const h of c.households) {
+      const missing = !householdIds.has(h.household_id);
+      if (missing !== h.is_missing) {
+        h.is_missing = missing;
+        sb.from('companionship_households').update({ is_missing: missing }).eq('id', h.id).then(() => {});
+      }
+      if (missing) anyMissing = true;
+    }
+    if (anyMissing !== c.needs_replacement) {
+      c.needs_replacement = anyMissing;
+      sb.from('companionships').update({ needs_replacement: anyMissing }).eq('id', c.id).then(() => {});
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+// SUPABASE
+//////////////////////////////////////////////////////////////////
+
+async function fetchCompanionships() {
+  const { data: comps, error: e1 } = await sb.from('companionships').select('*').order('created_at');
+  if (e1) { toast('DB error: ' + e1.message); return; }
+  const { data: members, error: e2 } = await sb.from('companionship_members').select('*');
+  if (e2) { toast('DB error: ' + e2.message); return; }
+  const { data: hh, error: e3 } = await sb.from('companionship_households').select('*');
+  if (e3) { toast('DB error: ' + e3.message); return; }
+
+  const memBy = {};
+  members.forEach(m => { (memBy[m.companionship_id] ||= []).push(m); });
+  const hhBy = {};
+  hh.forEach(h => { (hhBy[h.companionship_id] ||= []).push(h); });
+
+  state.companionships = comps.map(c => ({
+    ...c,
+    members: memBy[c.id] || [],
+    households: hhBy[c.id] || [],
+  }));
+}
+
+async function createCompanionship(district) {
+  const { data, error } = await sb.from('companionships')
+    .insert({ district: district === 'all' ? null : district })
+    .select().single();
+  if (error) { toast('Create failed: ' + error.message); return null; }
+  return { ...data, members: [], households: [] };
+}
+
+async function deleteCompanionship(id) {
+  const { error } = await sb.from('companionships').delete().eq('id', id);
+  if (error) toast('Delete failed: ' + error.message);
+}
+
+async function addMember(compId, person) {
+  // Remove from any existing companionship first (one-comp-per-person rule).
+  await sb.from('companionship_members').delete().eq('assignee_id', person.id);
+  const { data, error } = await sb.from('companionship_members')
+    .insert({ companionship_id: compId, assignee_name: person.name, assignee_id: person.id, is_missing: false })
+    .select().single();
+  if (error) { toast('Add failed: ' + error.message); return null; }
+  return data;
+}
+
+async function removeMember(memberId) {
+  const { error } = await sb.from('companionship_members').delete().eq('id', memberId);
+  if (error) toast('Remove failed: ' + error.message);
+}
+
+async function addHouseholdAssignment(compId, household) {
+  await sb.from('companionship_households').delete().eq('household_id', household.id);
+  const { data, error } = await sb.from('companionship_households')
+    .insert({ companionship_id: compId, household_name: household.name, household_id: household.id, is_missing: false })
+    .select().single();
+  if (error) { toast('Assign failed: ' + error.message); return null; }
+  return data;
+}
+
+async function removeHouseholdAssignment(rowId) {
+  const { error } = await sb.from('companionship_households').delete().eq('id', rowId);
+  if (error) toast('Unassign failed: ' + error.message);
+}
+
+async function updateCompNeedsReplacement(compId, value) {
+  await sb.from('companionships').update({ needs_replacement: value }).eq('id', compId);
+}
+
+//////////////////////////////////////////////////////////////////
+// RENDER
+//////////////////////////////////////////////////////////////////
+
+function render() {
+  renderBoard();
+  renderTable();
+  renderUnassigned();
+  renderIssues();
+  updateIssuesBadge();
+}
+
+function inDistrict(item) {
+  return state.district === 'all' || item.district === state.district;
+}
+
+function compInDistrict(c) {
+  if (state.district === 'all') return true;
+  // Show comp if its district matches or any of its members are in the selected district
+  if (c.district === state.district) return true;
+  return c.members.some(m => {
+    const p = state.people.find(p => p.id === m.assignee_id);
+    return p && p.district === state.district;
+  });
+}
+
+function assignedPersonIds() { return new Set(state.companionships.flatMap(c => c.members.map(m => m.assignee_id))); }
+function assignedHouseholdIds() { return new Set(state.companionships.flatMap(c => c.households.map(h => h.household_id))); }
+
+function renderBoard() {
+  const assignedPeople = assignedPersonIds();
+  const assignedHouseholds = assignedHouseholdIds();
+
+  // Available people
+  const search = document.getElementById('peopleSearch').value.toLowerCase();
+  const available = state.people
+    .filter(p => !assignedPeople.has(p.id))
+    .filter(inDistrict)
+    .filter(p => p.name.toLowerCase().includes(search) || p.address.toLowerCase().includes(search));
+  document.getElementById('availablePeopleCount').textContent = available.length;
+  const peopleEl = document.getElementById('availablePeople');
+  peopleEl.innerHTML = available.length === 0
+    ? '<div class="ink-soft text-xs italic py-2">Everyone in this district is assigned.</div>'
+    : available.map(personChip).join('');
+
+  // Available households
+  const hSearch = document.getElementById('householdsSearch').value.toLowerCase();
+  let households = state.households.filter(inDistrict).filter(h => h.name.toLowerCase().includes(hSearch));
+  if (state.householdFilter === 'unassigned') {
+    households = households.filter(h => !assignedHouseholds.has(h.id));
+  }
+  document.getElementById('availableHouseholdsCount').textContent = households.length;
+  const hEl = document.getElementById('availableHouseholds');
+  hEl.innerHTML = households.length === 0
+    ? '<div class="ink-soft text-xs italic py-2">No households match.</div>'
+    : households.map(h => householdChip(h, assignedHouseholds.has(h.id))).join('');
+
+  // Filter buttons
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    const active = b.dataset.filter === state.householdFilter;
+    b.style.background = active ? 'var(--accent-deep)' : 'transparent';
+    b.style.color = active ? 'white' : 'var(--ink-soft)';
+  });
+
+  // Companionships
+  const visibleComps = state.companionships.filter(compInDistrict);
+  const compEl = document.getElementById('companionships');
+  if (visibleComps.length === 0) {
+    compEl.innerHTML = '';
+    document.getElementById('companionshipsEmpty').classList.remove('hidden');
+  } else {
+    document.getElementById('companionshipsEmpty').classList.add('hidden');
+    compEl.innerHTML = visibleComps.map(companionshipCard).join('');
+  }
+
+  attachDragHandlers();
+}
+
+function personChip(p) {
+  return `
+    <div class="draggable surface rounded-lg px-3 py-2 text-sm border" draggable="true" data-type="person" data-id="${p.id}" style="border-color: var(--line);">
+      <div class="font-medium">${escapeHtml(p.name)}</div>
+      <div class="ink-soft text-xs flex items-center gap-1">
+        ${p.district ? `<span>${escapeHtml(p.district)}</span>` : ''}
+        ${p.address ? `<span>&middot; ${escapeHtml(p.address)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+function householdChip(h, isAssigned) {
+  return `
+    <div class="draggable surface rounded-lg px-3 py-2 text-sm border" draggable="true" data-type="household" data-id="${h.id}" style="border-color: var(--line); ${isAssigned ? 'opacity: 0.55' : ''}">
+      <div class="font-medium">${escapeHtml(h.name)}</div>
+      <div class="ink-soft text-xs">${escapeHtml(h.district || '')}${h.members ? ' &middot; ' + escapeHtml(h.members.split(';')[0]) + (h.members.includes(';') ? '...' : '') : ''}</div>
+    </div>`;
+}
+
+function companionshipCard(c) {
+  const memberStr = c.members.map(m => {
+    const cls = m.is_missing ? 'badge-warn' : '';
+    const note = m.is_missing ? ' (missing)' : '';
+    return `<span class="pill ${cls}" onclick="removeMemberClick('${m.id}')" style="cursor: pointer;" title="Click to remove">${escapeHtml(m.assignee_name)}${note} &times;</span>`;
+  }).join(' ');
+
+  const householdStr = c.households.map(h => {
+    const cls = h.is_missing ? 'badge-warn' : 'badge-ok';
+    const note = h.is_missing ? ' (missing)' : '';
+    return `<span class="pill ${cls}" onclick="removeHouseholdClick('${h.id}')" style="cursor: pointer;" title="Click to remove">${escapeHtml(h.household_name)}${note} &times;</span>`;
+  }).join(' ') || '<span class="ink-soft text-xs italic">Drag households here to assign</span>';
+
+  const memberDisplay = c.members.length === 0
+    ? '<span class="ink-soft italic">Empty</span>'
+    : c.members.map(m => `<span ${m.is_missing ? 'style="color: var(--warn);"' : ''}>${escapeHtml(m.assignee_name)}</span>`).join(' &middot; ');
+
+  return `
+    <div class="companionship-card surface rounded-xl p-4 card-shadow drop-target" data-comp-id="${c.id}">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="text-xs ink-soft uppercase tracking-wider">Companionship</div>
+            ${c.district ? `<span class="pill badge-info">${escapeHtml(c.district)}</span>` : ''}
+            ${c.needs_replacement ? '<span class="pill badge-warn">Needs replacement</span>' : ''}
+          </div>
+          <div class="display text-lg">${memberDisplay}</div>
+        </div>
+        <button class="ink-soft hover:text-red-600 text-sm" onclick="deleteCompClick('${c.id}')">Remove</button>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mb-3 min-h-[28px]">${memberStr}</div>
+      <div class="border-t pt-3" style="border-color: var(--line);">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs ink-soft uppercase tracking-wider">Households (${c.households.length})</div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 min-h-[28px]">${householdStr}</div>
+      </div>
+    </div>`;
+}
+
+function renderTable() {
+  const search = document.getElementById('tableSearch').value.toLowerCase();
+  const tbody = document.getElementById('tableBody');
+  const rows = state.companionships.filter(compInDistrict).map(c => {
+    const memberStr = c.members.map(m => m.assignee_name).join(' & ');
+    const hStr = c.households.map(h => h.household_name).join(', ');
+    if (search && !memberStr.toLowerCase().includes(search) && !hStr.toLowerCase().includes(search) && !(c.district || '').toLowerCase().includes(search)) return '';
+    let status, cls;
+    if (c.needs_replacement || c.members.some(m => m.is_missing) || c.households.some(h => h.is_missing)) {
+      status = 'Needs attention'; cls = 'badge-warn';
+    } else if (c.members.length < 2) { status = 'Needs partner'; cls = 'badge-soft'; }
+    else if (c.households.length === 0) { status = 'No households'; cls = 'badge-soft'; }
+    else { status = 'Active'; cls = 'badge-ok'; }
+    return `
+      <tr class="border-b" style="border-color: var(--line);">
+        <td class="px-4 py-3 ink-soft text-xs">${escapeHtml(c.district || '')}</td>
+        <td class="px-4 py-3 font-medium">${escapeHtml(memberStr) || '<span class="ink-soft italic">Empty</span>'}</td>
+        <td class="px-4 py-3 ink-soft">${escapeHtml(hStr) || '<span class="italic">None</span>'}</td>
+        <td class="px-4 py-3"><span class="pill ${cls}">${status}</span></td>
+        <td class="px-4 py-3"><button onclick="deleteCompClick('${c.id}')" class="ink-soft hover:text-red-600 text-xs">remove</button></td>
+      </tr>`;
+  }).filter(Boolean).join('');
+  tbody.innerHTML = rows || '<tr><td colspan="5" class="text-center py-8 ink-soft italic">No companionships match.</td></tr>';
+}
+
+function renderUnassigned() {
+  const assignedP = assignedPersonIds();
+  const assignedH = assignedHouseholdIds();
+  const unassignedP = state.people.filter(p => !assignedP.has(p.id)).filter(inDistrict);
+  const unassignedH = state.households.filter(h => !assignedH.has(h.id)).filter(inDistrict);
+
+  document.getElementById('unassignedPeopleCount').textContent = unassignedP.length;
+  document.getElementById('unassignedHouseholdsCount').textContent = unassignedH.length;
+
+  document.getElementById('unassignedPeople').innerHTML = unassignedP.length === 0
+    ? '<div class="ink-soft text-sm italic">Everyone is in a companionship.</div>'
+    : unassignedP.map(p => `
+        <div class="py-2 border-b" style="border-color: var(--line);">
+          <div class="font-medium text-sm">${escapeHtml(p.name)}</div>
+          <div class="ink-soft text-xs">${escapeHtml(p.district || '')}${p.address ? ' &middot; ' + escapeHtml(p.address) : ''}</div>
+        </div>`).join('');
+
+  document.getElementById('unassignedHouseholds').innerHTML = unassignedH.length === 0
+    ? '<div class="ink-soft text-sm italic">Every household has ministers.</div>'
+    : unassignedH.map(h => `
+        <div class="py-2 border-b" style="border-color: var(--line);">
+          <div class="font-medium text-sm">${escapeHtml(h.name)}</div>
+          <div class="ink-soft text-xs">${escapeHtml(h.district || '')}${h.members ? ' &middot; ' + escapeHtml(h.members.split(';').length + ' members') : ''}</div>
+        </div>`).join('');
+}
+
+function renderIssues() {
+  const issues = state.companionships.filter(c =>
+    c.needs_replacement || c.members.some(m => m.is_missing) || c.households.some(h => h.is_missing)
+  );
+  const el = document.getElementById('issuesContent');
+  if (issues.length === 0) {
+    el.innerHTML = '<div class="surface rounded-xl p-8 text-center card-shadow"><div class="display text-lg mb-2">All clear</div><p class="ink-soft text-sm">No companionships have missing people or households.</p></div>';
+    return;
+  }
+  el.innerHTML = issues.map(c => {
+    const missingMembers = c.members.filter(m => m.is_missing);
+    const missingHouseholds = c.households.filter(h => h.is_missing);
+    const okMembers = c.members.filter(m => !m.is_missing);
+    return `
+      <div class="surface rounded-xl p-4 card-shadow">
+        <div class="flex items-start justify-between mb-2">
+          <div>
+            <div class="display text-lg">${c.members.map(m => escapeHtml(m.assignee_name)).join(' & ') || 'Empty companionship'}</div>
+            <div class="text-xs ink-soft">${escapeHtml(c.district || '')}</div>
+          </div>
+          <span class="pill badge-warn">Needs attention</span>
+        </div>
+        ${missingMembers.length > 0 ? `
+          <div class="text-sm mt-3"><b>Missing person${missingMembers.length>1?'s':''}:</b> ${missingMembers.map(m => escapeHtml(m.assignee_name)).join(', ')}</div>
+          <div class="text-xs ink-soft mt-1">No longer in the roster. Replace them by dragging a new person onto this companionship on the board.</div>
+        ` : ''}
+        ${missingHouseholds.length > 0 ? `
+          <div class="text-sm mt-3"><b>Missing household${missingHouseholds.length>1?'s':''}:</b> ${missingHouseholds.map(h => escapeHtml(h.household_name)).join(', ')}</div>
+          <div class="text-xs ink-soft mt-1">No longer in the roster. Click to remove the assignment.</div>
+        ` : ''}
+        ${okMembers.length > 0 && missingMembers.length > 0 ? `
+          <div class="text-xs ink-soft mt-2">Still serving: ${okMembers.map(m => escapeHtml(m.assignee_name)).join(', ')}</div>
+        ` : ''}
+        <div class="mt-3 flex gap-2">
+          <button class="btn-ghost px-3 py-1 rounded text-xs" onclick="goToBoardForComp('${c.id}')">Edit on board</button>
+          <button class="btn-ghost px-3 py-1 rounded text-xs" onclick="resolveIssue('${c.id}')">Mark resolved</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateIssuesBadge() {
+  const count = state.companionships.filter(c =>
+    c.needs_replacement || c.members.some(m => m.is_missing) || c.households.some(h => h.is_missing)
+  ).length;
+  const badge = document.getElementById('issuesBadge');
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+    badge.style.background = 'var(--warn)';
+    badge.style.color = 'white';
+    badge.style.padding = '1px 7px';
+    badge.style.borderRadius = '999px';
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function escapeHtml(s) { return (s || '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+//////////////////////////////////////////////////////////////////
+// DRAG AND DROP
+//////////////////////////////////////////////////////////////////
+
+let dragData = null;
+
+function attachDragHandlers() {
+  document.querySelectorAll('.draggable').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      dragData = { type: el.dataset.type, id: el.dataset.id };
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.drag-over').forEach(d => d.classList.remove('drag-over'));
+    });
+  });
+  document.querySelectorAll('.drop-target').forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', async e => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const compId = el.dataset.compId;
+      await handleDrop(compId);
+    });
+  });
+}
+
+async function handleDrop(compId) {
+  if (!dragData) return;
+  const comp = state.companionships.find(c => c.id === compId);
+  if (!comp) return;
+  if (dragData.type === 'person') {
+    const person = state.people.find(p => p.id === dragData.id);
+    if (!person) { dragData = null; return; }
+    if (comp.members.length >= 3) {
+      toast('Companionship can have at most 3 people.');
+      dragData = null; return;
+    }
+    if (comp.members.find(m => m.assignee_id === person.id)) { dragData = null; return; }
+
+    // remove from any other comp first (local + remote)
+    for (const c of state.companionships) {
+      const i = c.members.findIndex(m => m.assignee_id === person.id);
+      if (i >= 0) c.members.splice(i, 1);
+    }
+    const newMember = await addMember(compId, person);
+    if (newMember) comp.members.push(newMember);
+    // If a comp's needs_replacement was set because of THIS person being missing, re-evaluate
+    refreshCompFlags(comp);
+  } else if (dragData.type === 'household') {
+    const household = state.households.find(h => h.id === dragData.id);
+    if (!household) { dragData = null; return; }
+    if (comp.households.find(h => h.household_id === household.id)) { dragData = null; return; }
+    for (const c of state.companionships) {
+      const i = c.households.findIndex(h => h.household_id === household.id);
+      if (i >= 0) c.households.splice(i, 1);
+    }
+    const newH = await addHouseholdAssignment(compId, household);
+    if (newH) comp.households.push(newH);
+    refreshCompFlags(comp);
+  }
+  dragData = null;
+  render();
+}
+
+function refreshCompFlags(c) {
+  const anyMissing = c.members.some(m => m.is_missing) || c.households.some(h => h.is_missing);
+  if (anyMissing !== c.needs_replacement) {
+    c.needs_replacement = anyMissing;
+    updateCompNeedsReplacement(c.id, anyMissing);
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+// EVENT HANDLERS
+//////////////////////////////////////////////////////////////////
+
+window.deleteCompClick = async function(id) {
+  if (!confirm('Remove this companionship? Members and households will return to the available list.')) return;
+  await deleteCompanionship(id);
+  state.companionships = state.companionships.filter(c => c.id !== id);
+  render();
+  toast('Companionship removed.');
+};
+
+window.removeMemberClick = async function(memberId) {
+  await removeMember(memberId);
+  for (const c of state.companionships) {
+    const i = c.members.findIndex(m => m.id === memberId);
+    if (i >= 0) {
+      c.members.splice(i, 1);
+      refreshCompFlags(c);
+      break;
+    }
+  }
+  render();
+};
+
+window.removeHouseholdClick = async function(rowId) {
+  await removeHouseholdAssignment(rowId);
+  for (const c of state.companionships) {
+    const i = c.households.findIndex(h => h.id === rowId);
+    if (i >= 0) {
+      c.households.splice(i, 1);
+      refreshCompFlags(c);
+      break;
+    }
+  }
+  render();
+};
+
+window.goToBoardForComp = function(id) {
+  switchView('board');
+};
+
+window.resolveIssue = async function(id) {
+  const c = state.companionships.find(c => c.id === id);
+  if (!c) return;
+  if (!confirm('Mark this companionship as resolved? This clears the warning. Missing people and households will still be flagged until you remove or replace them.')) return;
+  c.needs_replacement = false;
+  await updateCompNeedsReplacement(id, false);
+  render();
+};
+
+document.getElementById('newCompBtn').addEventListener('click', async () => {
+  const dist = state.district === 'all' ? null : state.district;
+  const c = await createCompanionship(state.district);
+  if (c) {
+    state.companionships.push(c);
+    render();
+  }
+});
+
+document.getElementById('refreshBtn').addEventListener('click', fetchRoster);
+document.getElementById('peopleSearch').addEventListener('input', renderBoard);
+document.getElementById('householdsSearch').addEventListener('input', renderBoard);
+document.getElementById('tableSearch').addEventListener('input', renderTable);
+document.getElementById('districtFilter').addEventListener('change', e => {
+  state.district = e.target.value;
+  render();
+});
+
+document.querySelectorAll('.filter-btn').forEach(b => {
+  b.addEventListener('click', () => { state.householdFilter = b.dataset.filter; renderBoard(); });
+});
+
+function switchView(v) {
+  state.view = v;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  ['board','table','unassigned','issues'].forEach(name => {
+    document.getElementById('view-' + name).classList.toggle('hidden', v !== name);
+  });
+}
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => switchView(tab.dataset.view));
+});
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('sheetIdInput').value = state.config.sheetId || '';
+  document.getElementById('apiKeyInput').value = state.config.apiKey || '';
+  document.getElementById('settingsModal').classList.remove('hidden');
+  document.getElementById('settingsModal').classList.add('flex');
+});
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+function closeSettings() {
+  document.getElementById('settingsModal').classList.add('hidden');
+  document.getElementById('settingsModal').classList.remove('flex');
+}
+document.getElementById('settingsSave').addEventListener('click', () => {
+  state.config.sheetId = document.getElementById('sheetIdInput').value.trim();
+  state.config.apiKey = document.getElementById('apiKeyInput').value.trim();
+  saveSettings();
+  closeSettings();
+  fetchRoster();
+});
+
+function setStatus(text) { document.getElementById('syncStatus').textContent = text; }
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+//////////////////////////////////////////////////////////////////
+// INIT
+//////////////////////////////////////////////////////////////////
+
+async function init() {
+  loadSettings();
+  setStatus('Loading companionships...');
+  await fetchCompanionships();
+  setStatus(`${state.companionships.length} companionships loaded.`);
+  render();
+  if (state.config.sheetId && state.config.apiKey) {
+    fetchRoster();
+  } else {
+    toast('Add your Google Sheet in Settings to load the roster.');
+  }
+}
+</script>
+</body>
+</html>
