@@ -1,151 +1,206 @@
 # Ministering Assignment Tool
 
-A simple web tool for an Elders quorum presidency to manage ministering companionships and household assignments. Drag and drop, district filtering, real-time sync across the presidency, and a Google Sheet as the live roster.
+A web tool for an Elders quorum presidency to manage ministering companionships and household assignments. Drag and drop, district filtering, and a Google Sheet as the live roster.
 
-## Architecture in one paragraph
+## Quick reference
 
-The tool is one HTML file. It loads the assignee and household roster from your Google Sheet (read-only, via the public Sheets API). It stores companionships and household assignments in a Supabase database (free tier, real-time, all presidency members see the same data). A passphrase gate plus an unguessable URL is the security boundary. Hosted free on GitHub Pages.
+- **The tool URL**: `https://young-frank.github.io/camelot-first/` (share with the presidency, keep off public channels)
+- **Source of truth for the roster**: your Google Sheet
+- **Source of truth for assignments**: Supabase (you don't touch this directly)
+- **To update who's in the ward**: edit the Google Sheet, click "Refresh roster" in the tool
+
+## Day-to-day workflow
+
+This is the section you'll use most often. Once setup is done (further down), this is all you need to know.
+
+### Adding a new household
+
+A new family moves into the ward.
+
+1. Open your Google Sheet.
+2. Click the **Households** tab at the bottom.
+3. Add a new row at the bottom. Fill in three columns:
+   - **District**: e.g. `District 1`
+   - **Family Name**: how you want them displayed in the tool (e.g. `Smith` or `Smith (J)` if there are already other Smiths)
+   - **Members**: semicolon-separated list, e.g. `Smith, John; Smith, Jane; Smith, Junior`
+4. Open the tool, click **"Refresh roster"** (top right).
+5. The new household appears in the right-side panel, ready to drag onto a companionship.
+
+### Adding a new person (assignee)
+
+A new minister becomes available.
+
+1. Google Sheet → **Assignees** tab.
+2. Add a new row. Fill in:
+   - **District**: e.g. `District 2`
+   - **Assignee Name**: format as `Last, First` to match existing data (e.g. `Smith, John`)
+   - **Address**: street address with city and zip
+3. Tool → **Refresh roster**.
+4. They appear in the available people list on the left.
+
+### When someone moves out
+
+1. Google Sheet → delete or blank out their row in either tab.
+2. Tool → **Refresh roster**.
+3. Any companionship that contained that person is automatically flagged "Needs replacement" and shows up in the **Issues** tab.
+4. Their household assignments stay intact (so you don't lose track of who needs new ministers).
+5. Drag a replacement person onto the companionship. The flag clears once nobody in the companionship is missing.
+
+Same logic for a removed household: it gets a "(missing)" flag inside its companionship pill, and you can click the pill to remove the assignment.
+
+### When an address or name changes
+
+Just edit the cell in the Google Sheet, then Refresh roster. The tool picks up the change.
+
+**Caveat about renames**: the tool identifies people and households by name. If you change someone's name in the sheet (e.g. typo fix), the tool will treat it as the old person disappearing and a new person appearing. The old name will be flagged as "missing" in their companionship. To handle a rename cleanly: drag the renamed person back onto their old companionship to replace the missing one. Same with renamed households.
+
+### Building or adjusting companionships
+
+This is the main board.
+
+- **Drag people from the left** into a companionship card to assign them.
+- **Drag households from the right** onto a companionship to assign that household.
+- **Click any pill** (a person or household chip inside a companionship) to remove it.
+- **Click "+ New companionship"** to make an empty one. Then drag people and households into it. (Note: the empty companionship persists in the database the moment you click "+ New". If you don't add anything to it, you can click "Remove" to discard.)
+- **District filter** at the top right narrows everything to one district. Companionships can cross districts if you want; the filter just controls visibility.
+
+### Tracking who needs ministers
+
+- The **Unassigned** tab shows people without a companionship and households without ministers, scoped to the current district filter.
+- The **Issues** tab shows companionships that have someone (or some household) missing after a roster refresh. Address these first.
+
+### Important rules baked into the tool
+
+- A person can be in at most one companionship at a time. Dragging someone into a new companionship removes them from their previous one automatically.
+- A household can be assigned to at most one companionship at a time. Same auto-remove behavior.
+- A companionship can hold up to 3 people. Trying to drag a 4th gets blocked.
+- Removed people are flagged, not deleted. Your historical data stays.
+
+## Do I need to touch Supabase or GitHub for normal updates?
+
+**No.** Just the Google Sheet, and click Refresh roster.
+
+You only touch:
+
+- **Supabase**: never, unless something corrupts and we need to debug
+- **GitHub**: only if you want to change the tool's code (passphrase, features, fixes)
+
+The Google Sheet is your single point of maintenance for the roster.
+
+---
+
+## Architecture (for reference)
+
+The tool is one HTML file. It reads the assignee and household roster from your Google Sheet (read-only, public link sharing, via Sheets API). It stores companionships and household assignments in Supabase. A passphrase gate plus the deployed URL is the security boundary. Hosted free on GitHub Pages.
 
 ## What's in this repo
 
 - `index.html`: the entire app
-- `schema.sql`: run this once in Supabase to create the tables
-- `seed.sql`: optional one-time seed of the 80-some existing assignments from the original spreadsheet
-- `.github/workflows/deploy.yml`: auto-deploy to GitHub Pages on every push to main
+- `schema.sql`: ran once in Supabase to create the tables
+- `seed.sql`: ran once to load existing 52 companionships from the original spreadsheet
+- `.github/workflows/deploy.yml`: auto-deploys to GitHub Pages on every push
 - `README.md`: this file
 
-## Setup, in order
+---
 
-### 1. Create the Supabase tables
+## First-time setup (already done, kept for reference)
 
-1. Go to your Supabase project (`hwbayyapshaqdsyoxwjv`).
-2. Open the SQL Editor (left sidebar, looks like a database icon).
-3. Click "New query".
-4. Paste the contents of `schema.sql`.
-5. Click Run.
+### 1. Supabase tables
 
-You should see "Success. No rows returned." Verify by clicking Table Editor in the sidebar; you should see three new tables: `companionships`, `companionship_members`, `companionship_households`.
+Schema and seed already loaded into project `hwbayyapshaqdsyoxwjv`. To start fresh:
 
-### 2. Seed the existing assignments
-
-1. SQL Editor again, new query.
-2. Paste `seed.sql`.
-3. Click Run.
-
-You should see something like "Success. 52 rows" plus more for the joined inserts. Switch to Table Editor and confirm you have 52 rows in `companionships`.
-
-If you ever want to start fresh, run this in the SQL editor:
 ```sql
 delete from companionships;
 ```
-The cascade will clean up the related tables.
 
-### 3. Move your spreadsheet to Google Sheets
+Then re-run `seed.sql`. Cascades clear related tables.
 
-The tool reads from Google Sheets, not Excel. You need to:
+To delete only test rows that have no members or households:
 
-1. Upload `Ministering_Assignments.xlsx` to Google Drive.
-2. Right-click it, Open with > Google Sheets. Then File > Save as Google Sheets.
-3. Share the resulting Google Sheet: click Share, change to "Anyone with the link" and "Viewer". Copy the link.
-4. The Sheet ID is the long string in the URL between `/d/` and `/edit`. Save it.
+```sql
+delete from companionships
+where (select count(*) from companionship_members where companionship_id = companionships.id) = 0
+  and (select count(*) from companionship_households where companionship_id = companionships.id) = 0;
+```
 
-### 4. Get a Google Sheets API key
+### 2. Google Sheet
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com).
-2. Create a new project (any name, e.g. "ministering").
-3. From the left menu: APIs and Services > Library. Search for "Google Sheets API". Click it, click Enable.
-4. APIs and Services > Credentials > Create Credentials > API key. Copy it.
-5. Strongly recommended: click the new API key, "Edit API key" and:
-   - Under "API restrictions", restrict to "Google Sheets API".
-   - Under "Application restrictions", set to "Websites" and add your GitHub Pages URL once it exists (we'll get it in the next step).
+- Original Excel file uploaded to Drive, converted to Google Sheets (`File > Save as Google Sheets`)
+- Sharing set to "Anyone with the link, Viewer"
+- Sheet ID is the long string in the URL between `/d/` and `/edit`
 
-### 5. Deploy to GitHub Pages
+### 3. Google Sheets API key
 
-1. Create a new GitHub repo. Use a hard-to-guess name (e.g. `mw-min-x7k2m9` rather than `ministering`). Public is fine since the passphrase is the real gate.
-2. Drop the contents of this folder into the repo (`index.html`, `schema.sql`, `seed.sql`, `.github/`, `README.md`).
-3. Commit and push.
-4. In the repo, go to Settings > Pages.
-5. Under "Source", choose "GitHub Actions".
-6. Wait a minute. The Actions tab will show a deploy workflow running. When it's done, you'll get a URL like `https://yourusername.github.io/mw-min-x7k2m9/`.
+- Created in [Google Cloud Console](https://console.cloud.google.com)
+- Project: `ministering-tool`
+- Sheets API enabled (APIs & Services > Library)
+- API key created (APIs & Services > Credentials)
+- Restricted to: Sheets API only, websites `https://young-frank.github.io/*`
 
-### 6. Open the tool and add the sheet credentials
+### 4. GitHub Pages deploy
 
-1. Visit the URL.
-2. Default passphrase is `ministering`. Enter it.
-3. Click Settings (top right).
-4. Paste your Sheet ID and API Key. Click "Save and reload".
-5. The roster should load: 87 people, 111 households, plus the 52 seeded companionships from your existing assignments.
+- Repo: `young-frank/camelot-first`
+- Settings > Pages > Source: GitHub Actions
+- Each push to `main` triggers `.github/workflows/deploy.yml` and redeploys
 
-### 7. Change the passphrase
+### 5. Tool configured
 
-The default `ministering` is too obvious for production. To set your own:
+- Settings dialog → paste Sheet ID and API Key → Save and reload
+- Stored in browser localStorage (each presidency member needs to do this once on their device)
 
-1. Open your deployed page in Chrome. Open DevTools (F12 or right-click > Inspect) > Console tab.
-2. Paste this, replacing `your-new-pass` with the passphrase you want:
+---
+
+## Changing the passphrase
+
+The default `ministering` is too obvious. To set a real one:
+
+1. Open the deployed page, enter passphrase, open DevTools (F12) > Console.
+2. Paste, replacing `your-new-pass`:
    ```javascript
-   crypto.subtle.digest('SHA-256', new TextEncoder().encode('your-new-pass')).then(h =>
-     console.log(Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('')))
+   crypto.subtle.digest('SHA-256', new TextEncoder().encode('your-new-pass')).then(h => console.log(Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('')))
    ```
-3. Copy the long hex string that prints.
-4. Open `index.html` in your repo, find:
+3. Copy the hex string that prints.
+4. In GitHub, edit `index.html`. Find:
    ```javascript
    const PASS_HASH = '';
    ```
-   and paste your hash inside the quotes.
-5. Optionally, also change `DEFAULT_PASS` to an empty string so the default cannot be used as a fallback.
-6. Commit and push. GitHub Pages redeploys automatically.
+   Paste your hash inside the quotes.
+5. A few lines above, change:
+   ```javascript
+   const DEFAULT_PASS = 'ministering';
+   ```
+   to:
+   ```javascript
+   const DEFAULT_PASS = '';
+   ```
+6. Commit. GitHub Actions redeploys automatically (about 60 seconds).
 
-## Sharing it with the presidency
+## Sharing with the presidency
 
-Send them:
-1. The URL
-2. The passphrase
+Each presidency member needs:
+1. The URL: `https://young-frank.github.io/camelot-first/`
+2. The current passphrase
+3. The Sheet ID and API Key (to paste into Settings on first load)
 
-Through a private channel (Signal, text, in person). Not in a Slack or Teams channel where past members might still have access.
+Send privately, not in shared chats. Bookmark recommended.
 
-## Daily use
+## Troubleshooting
 
-- **Companionship Board** is the main view. Drag people from the left into companionships. Drag households from the right onto a companionship to assign them. Click any pill to remove that person or household.
-- **Assignments Table** is for printing or reviewing the full picture.
-- **Unassigned** shows who and what still needs coverage.
-- **Issues** appears when someone has moved out of the ward (after a roster refresh) or a household is gone. The companionship is flagged, but the rest of it stays put until you replace the missing person.
-- **District filter** in the top right narrows everything to one district.
-- **Refresh roster** pulls the latest from Google Sheets. Do this whenever the ward clerk updates the sheet.
+| Problem | Likely cause | Fix |
+|---------|--------------|-----|
+| "Could not fetch sheet" | Wrong Sheet ID or API key, sheet not public, or API key restrictions don't include the URL | Re-check Settings; verify in Google Cloud Console under Credentials |
+| Everyone shows as "(missing)" | Sheet not loaded yet | Refresh roster; if still failing, check Settings |
+| Tool loads but is empty | New presidency member hasn't set Sheet ID yet | Click Settings, paste credentials |
+| Companionship count is wrong | Empty test companionships sitting around | Run the cleanup SQL above |
+| Two people editing at once shows conflicts | Last-write-wins is normal for this scale | Refresh and reapply |
 
-## How it handles people moving out
+## Future improvements (not built yet)
 
-When you click Refresh roster and someone is no longer in the sheet:
-- That person is flagged "(missing)" in their companionship.
-- The companionship gets a "Needs replacement" badge and shows up in the Issues tab.
-- Their households stay assigned (so you don't lose track of who needs new ministers).
-- Drag a replacement onto the companionship to fix it. The "Needs replacement" flag clears automatically when no one in the companionship is missing.
-
-Same logic applies if a household is removed from the sheet.
-
-## Adjusting things later
-
-- **Add more districts**: just add them to the District column in the sheet, hit Refresh.
-- **Add notes to a companionship**: not in the UI yet, but the database has a `notes` column ready when you want it.
-- **Move from passphrase to real auth**: Supabase has email auth built in. We'd swap the passphrase gate for a Supabase login, restrict the database policies to authenticated users, and add presidency members by email. Half a day of work.
-
-## A note on security
-
-The "anon key" in the code is meant to be public, by Supabase's design. The real protection is:
-1. The unguessable URL (only the presidency knows it)
-2. The passphrase gate (prevents casual access)
-3. Optional: GitHub repo could be private if you upgrade to a paid plan
-
-Do not post the URL in any public space. Do not commit the passphrase to the repo. If the passphrase leaks, change it (step 7 above) and tell the presidency.
-
-The data itself: ward member names, addresses, and ministering pairings. Sensitive enough to keep behind the gate, not so sensitive that a leak would be catastrophic. Treat it like you'd treat the Google Sheet itself.
-
-## If something breaks
-
-- **"Could not fetch sheet" error**: probably an API key issue. In Settings, double-check the key and Sheet ID. Make sure the sheet is "Anyone with the link can view".
-- **Tool loads but no roster appears**: check browser console (F12) for the actual error.
-- **Companionships missing after refresh**: never happens automatically. We never delete companionships, only flag them. Check the Issues tab.
-- **Two presidency members editing at once**: last write wins. Conflicts are unlikely but possible. If they happen, refresh the page.
+- Notes per companionship (database column exists, just no UI)
+- Real-time sync between presidency members (currently each user fetches on load)
+- Proximity-based pairing suggestions (UI toggle was in the prototype, removed for production simplicity)
+- Move from passphrase to Supabase email auth (would let you add/remove presidency members by email instead of changing the shared passphrase)
 
 ## Credits
 
-Built for Camelot 1st Ward Elders Quorum, April 2026.
+Built April 2026.
